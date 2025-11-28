@@ -6,12 +6,12 @@ import requests
 st.title("Smart Contract Data Extractor for D365 BC")
 st.write("""
 Upload a Word (.docx) or PDF contract. 
-The deployed agent will extract key fields and show ERP-ready JSON.
+The deployed Foundry agent will extract key fields and show ERP-ready JSON.
 """)
 
 # --- Streamlit secrets ---
 api_key = st.secrets["FOUNDARY_API_KEY"]
-agent_endpoint = st.secrets["FOUNDARY_AGENT_ENDPOINT"]
+agent_endpoint = st.secrets["FOUNDARY_AGENT_ENDPOINT"]  # e.g., https://test-dea-resource.openai.azure.com/foundry/agents/Agent283/invoke?api-version=2025-10-03
 
 # --- Helper: read DOCX ---
 def read_docx(file):
@@ -30,11 +30,7 @@ def call_foundry(text):
         "Content-Type": "application/json"
     }
     payload = {
-        "messages": [
-            {"role": "system", "content": "You are an expert in extracting contract fields into ERP-ready JSON."},
-            {"role": "user", "content": text}
-        ],
-        "max_tokens": 1000
+        "input_text": text
     }
     
     response = requests.post(agent_endpoint, headers=headers, json=payload)
@@ -44,8 +40,7 @@ def call_foundry(text):
         return {}
     
     try:
-        result = response.json()
-        return result.get("choices", [{}])[0].get("message", {}).get("content", {})
+        return response.json()
     except Exception as e:
         st.error(f"Error parsing response: {e}")
         return {}
@@ -54,6 +49,7 @@ def call_foundry(text):
 uploaded_file = st.file_uploader("Upload contract (.docx or .pdf)", type=["docx", "pdf"])
 
 if uploaded_file:
+    # Extract text
     if uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
         contract_text = read_docx(uploaded_file)
     elif uploaded_file.type == "application/pdf":
