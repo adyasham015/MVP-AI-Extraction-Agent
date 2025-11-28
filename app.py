@@ -1,62 +1,49 @@
 import streamlit as st
 from docx import Document
-import openai
-import os
+import re
 import json
 
-# --- Streamlit page ---
 st.title("Smart Contract Data Extractor for D365 BC")
 st.write("""
 Upload a Word (.docx) contract. 
-The AI connector will extract key fields and show them in ERP-ready JSON format.
+The Copilot-assisted extraction will parse the document and show ERP-ready JSON format.
 """)
-
-# --- OpenAI API Key (set as environment variable) ---
-openai.api_key = os.getenv("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")
 
 uploaded_file = st.file_uploader("Upload Word contract (.docx)", type=["docx"])
 
 def read_docx(file):
+    """Read text from uploaded .docx file"""
     doc = Document(file)
-    text = "\n".join([para.text for para in doc.paragraphs])
-    return text
+    return "\n".join([para.text for para in doc.paragraphs])
 
-def ai_extract_contract(text):
+def copilot_extract_contract(text):
     """
-    Sends contract text to OpenAI GPT to extract structured data
+    Mock 'Copilot-assisted' extraction logic.
+    Replace this with Copilot suggestions for smarter parsing.
     """
-    prompt = f"""
-You are a contract data extraction assistant. 
-Extract the following fields from the contract text below in JSON format:
+    # Simple keyword/regex extraction
+    fields = {
+        "Seller": "",
+        "Buyer": "",
+        "Commodity": "",
+        "Quantity": "",
+        "Price": "",
+        "Terms": "",
+        "Dates": "",
+        "Incoterms": "",
+        "Payment terms": "",
+        "Governing law": "",
+        "Bank details": ""
+    }
 
-- Seller
-- Buyer
-- Commodity
-- Quantity
-- Price
-- Terms
-- Dates
-- Incoterms
-- Payment terms
-- Governing law
-- Bank details
+    # Example regex extraction
+    for key in fields.keys():
+        pattern = re.compile(rf"{key}[:\-]\s*(.+)", re.IGNORECASE)
+        match = pattern.search(text)
+        if match:
+            fields[key] = match.group(1).strip()
 
-Contract Text:
-{text}
-
-Return ONLY JSON with keys exactly as listed.
-"""
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0
-    )
-    try:
-        extracted_json = response.choices[0].message.content.strip()
-        return json.loads(extracted_json)
-    except Exception as e:
-        st.error("Failed to parse JSON from AI response.")
-        return {}
+    return fields
 
 if uploaded_file:
     contract_text = read_docx(uploaded_file)
@@ -64,8 +51,7 @@ if uploaded_file:
     st.text_area("Preview", contract_text, height=300)
 
     if st.button("Extract Data for D365 BC"):
-        with st.spinner("Extracting data using AI..."):
-            extracted_data = ai_extract_contract(contract_text)
+        extracted_data = copilot_extract_contract(contract_text)
         st.success("Data extracted successfully!")
         st.subheader("ERP-ready JSON:")
         st.json(extracted_data)
