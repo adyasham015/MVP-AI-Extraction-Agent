@@ -7,10 +7,10 @@ import json
 st.title("Smart Contract Data Extractor for D365 BC")
 st.write("""
 Upload a Word (.docx) or PDF contract. 
-The agent extracts key fields and shows ERP-ready JSON.
+The deployed agent will extract key fields and show ERP-ready JSON.
 """)
 
-# --- Load API key and endpoint from secrets ---
+# --- Streamlit secrets ---
 api_key = st.secrets["FOUNDARY_API_KEY"]
 agent_endpoint = st.secrets["FOUNDARY_AGENT_ENDPOINT"]
 
@@ -26,16 +26,12 @@ def read_pdf(file):
 
 # --- Call Foundry Agent ---
 def call_foundry(text):
-    # Append api-version query parameter
-    endpoint_with_version = f"{agent_endpoint}?api-version=2025-10-03"
-    
     headers = {
         "Ocp-Apim-Subscription-Key": api_key,
         "Content-Type": "application/json"
     }
     payload = {"input_text": text}
-    
-    response = requests.post(endpoint_with_version, headers=headers, json=payload)
+    response = requests.post(agent_endpoint, headers=headers, json=payload)
     
     if response.status_code != 200:
         st.error(f"Foundry API error {response.status_code}: {response.text}")
