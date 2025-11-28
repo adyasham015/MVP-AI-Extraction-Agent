@@ -26,15 +26,21 @@ def read_pdf(file):
 
 # --- Call Foundry Agent ---
 def call_foundry(text):
+    # Append api-version query parameter
+    endpoint_with_version = f"{agent_endpoint}?api-version=2025-10-03"
+    
     headers = {
         "Ocp-Apim-Subscription-Key": api_key,
         "Content-Type": "application/json"
     }
     payload = {"input_text": text}
-    response = requests.post(agent_endpoint, headers=headers, json=payload)
+    
+    response = requests.post(endpoint_with_version, headers=headers, json=payload)
+    
     if response.status_code != 200:
         st.error(f"Foundry API error {response.status_code}: {response.text}")
         return {}
+    
     return response.json()
 
 # --- File uploader ---
