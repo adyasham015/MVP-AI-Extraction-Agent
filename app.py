@@ -1,81 +1,51 @@
 import streamlit as st
+import requests
 from docx import Document
-from openai import OpenAI
 import json
-import os
 
-st.title("Smart Contract Data Extractor for D365 BC")
-st.write("""
-Upload a Word (.docx) contract. 
-The AI connector will extract key fields and show them in ERP-ready JSON format.
-""")
+# --- Streamlit UI ---
+st.title("Contract Extraction MVP")
+uploaded_file = st.file_uploader("Upload contract (.docx)", type=["docx", "pdf"])
 
-# --- OpenAI client using GitHub secret ---
-api_key = os.getenv("OPEN_AI_KEY")  # GitHub Actions secret
-
-if not api_key:
-    st.error("OpenAI API key not found. Please set the OPEN_AI_KEY environment variable or GitHub secret.")
-    client = None
-else:
-    client = OpenAI(api_key=api_key)
-
-# --- Helper function to read .docx ---
+# --- Helper to read DOCX ---
 def read_docx(file):
     doc = Document(file)
-    return "\n".join([para.text for para in doc.paragraphs])
+    return "\n".join([p.text for p in doc.paragraphs])
 
-# --- AI extraction ---
-def ai_extract_contract(text):
-    if not client:
-        return {}
-    
-    prompt = f"""
-You are a contract extraction engine.
-Extract the following fields as JSON only:
-
-- Seller
-- Buyer
-- Commodity
-- Quantity
-- Price
-- Terms
-- Dates
-- Incoterms
-- Payment terms
-- Governing law
-- Bank details
-
-Contract text:
-{text}
-
-Return ONLY JSON. No explanation.
-"""
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4.1-mini",  # or gpt-4
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0
-        )
-        return json.loads(response.choices[0].message.content)
-    except json.JSONDecodeError:
-        st.error("Could not parse JSON from AI response.")
-        return {}
-    except Exception as e:
-        st.error(f"OpenAI API call failed: {e}")
+# --- Call Foundry project ---
+def call_foundry(contract_text):
+    endpoint = "https://test-dea-resource.services.ai.azure.com/api/projects/test-dea"
+    headers = {
+        "Ocp-Apim-Subscription-Key": st.secrets["FOUNDARY_API_KEY"],  # put API key in Streamlit secrets
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "input_text": contract_text
+    }
+    response = requests.post(endpoint, headers=headers, json=payload)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        st.error(f"Foundry API error {response.status_code}: {response.text}")
         return {}
 
-# --- Streamlit interface ---
-uploaded_file = st.file_uploader("Upload Word contract (.docx)", type=["docx"])
-
+# --- Main ---
 if uploaded_file:
-    contract_text = read_docx(uploaded_file)
+    if uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+        contract_text = read_docx(uploaded_file)
+    else:
+        st.warning("Currently only DOCX is supported")
+        contract_text = ""
+
     st.subheader("Contract Preview")
     st.text_area("Preview", contract_text, height=300)
 
-    if st.button("Extract Data for D365 BC"):
-        with st.spinner("Extracting data using OpenAI..."):
-            extracted_data = ai_extract_contract(contract_text)
-        if extracted_data:
-            st.success("Data extracted successfully!")
-            st.subheader("ERP-ready JSON:")
-            st.json(extracted_data)
+    if st.button("Extract Data"):
+        with st.spinner("Calling Foundry AI Agent..."):
+            extracted_data = call_foundry(contract_text)
+        st.subheader("ERP-ready JSON")
+        st.json(extracted_data)
+
+        if st.button("Send to ERP"):
+            # mock API call
+            st.success("Data sent to ERP (mock)!")
