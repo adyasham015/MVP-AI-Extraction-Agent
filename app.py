@@ -12,7 +12,7 @@ The AI connector will extract key fields and show them in ERP-ready JSON format.
 """)
 
 # --- OpenAI API Key (set as environment variable) ---
-openai.api_key = os.getenv("OPENAI_API_KEY")
+openai.api_key = os.getenv("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")
 
 uploaded_file = st.file_uploader("Upload Word contract (.docx)", type=["docx"])
 
