@@ -2,7 +2,6 @@ import streamlit as st
 from docx import Document
 import PyPDF2
 import requests
-import json
 
 st.title("Smart Contract Data Extractor for D365 BC")
 st.write("""
@@ -27,23 +26,34 @@ def read_pdf(file):
 # --- Call Foundry Agent ---
 def call_foundry(text):
     headers = {
-        "Ocp-Apim-Subscription-Key": api_key,
+        "api-key": api_key,
         "Content-Type": "application/json"
     }
-    payload = {"input_text": text}
+    payload = {
+        "messages": [
+            {"role": "system", "content": "You are an expert in extracting contract fields into ERP-ready JSON."},
+            {"role": "user", "content": text}
+        ],
+        "max_tokens": 1000
+    }
+    
     response = requests.post(agent_endpoint, headers=headers, json=payload)
     
     if response.status_code != 200:
         st.error(f"Foundry API error {response.status_code}: {response.text}")
         return {}
     
-    return response.json()
+    try:
+        result = response.json()
+        return result.get("choices", [{}])[0].get("message", {}).get("content", {})
+    except Exception as e:
+        st.error(f"Error parsing response: {e}")
+        return {}
 
 # --- File uploader ---
 uploaded_file = st.file_uploader("Upload contract (.docx or .pdf)", type=["docx", "pdf"])
 
 if uploaded_file:
-    # Extract text
     if uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
         contract_text = read_docx(uploaded_file)
     elif uploaded_file.type == "application/pdf":
@@ -51,10 +61,10 @@ if uploaded_file:
     else:
         st.error("Unsupported file type")
         contract_text = ""
-    
+
     st.subheader("Contract Preview")
     st.text_area("Preview", contract_text, height=300)
-    
+
     if st.button("Extract Data for ERP"):
         with st.spinner("Extracting data from Foundry agent..."):
             extracted_data = call_foundry(contract_text)
@@ -64,5 +74,4 @@ if uploaded_file:
             st.json(extracted_data)
             
             if st.button("Send to ERP (mock)"):
-                # Replace with your ERP API call
                 st.info("Data would be sent to ERP here.")
