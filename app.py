@@ -1,11 +1,14 @@
+# File: app.py
 import streamlit as st
 import re
-import json
+import pandas as pd
+from io import StringIO
+from PyPDF2 import PdfReader
+from docx import Document
 
 # --- Mock document extractor ---
 def mock_extract_contract(text):
     """Simulates Azure Form Recognizer output"""
-    # Simple regex examples; in real life you'd call LLM or OCR
     seller = re.search(r"Seller: (.+)", text)
     buyer = re.search(r"Buyer: (.+)", text)
     commodity = re.search(r"Commodity: (.+)", text)
@@ -32,51 +35,52 @@ def mock_extract_contract(text):
         "Bank details": bank.group(1) if bank else ""
     }
 
+# --- Text extraction functions ---
+def extract_text_from_pdf(file):
+    pdf = PdfReader(file)
+    text = ""
+    for page in pdf.pages:
+        text += page.extract_text() + "\n"
+    return text
+
+def extract_text_from_docx(file):
+    doc = Document(file)
+    text = "\n".join([para.text for para in doc.paragraphs])
+    return text
+
+def extract_text_from_excel(file):
+    df = pd.read_excel(file, sheet_name=None)  # all sheets
+    text = ""
+    for sheet_name, sheet in df.items():
+        sheet_text = sheet.astype(str).agg(' '.join, axis=1).str.cat(sep='\n')
+        text += sheet_text + "\n"
+    return text
+
 # --- Streamlit App ---
 st.title("Contract Data Extractor MVP")
+st.write("Upload a contract (PDF, Word, Excel, or TXT)")
 
-uploaded_file = st.file_uploader("Upload your contract (.txt for MVP)", type=["txt"])
+uploaded_file = st.file_uploader("Choose a contract", type=["txt","pdf","docx","xlsx"])
+
+extracted_data = None
 
 if uploaded_file:
-    contract_text = uploaded_file.read().decode("utf-8")
+    file_type = uploaded_file.type
+    text = ""
+
+    if uploaded_file.name.endswith(".txt"):
+        text = uploaded_file.read().decode("utf-8")
+    elif uploaded_file.name.endswith(".pdf"):
+        text = extract_text_from_pdf(uploaded_file)
+    elif uploaded_file.name.endswith(".docx"):
+        text = extract_text_from_docx(uploaded_file)
+    elif uploaded_file.name.endswith(".xlsx"):
+        text = extract_text_from_excel(uploaded_file)
     
-    st.subheader("Raw Contract Text")
-    st.text_area("Contract Content", contract_text, height=200)
-    
-    # Extract data
-    extracted_data = mock_extract_contract(contract_text)
-    
-    st.subheader("Extracted Data")
-    form = st.form(key="kyc_form")
-    
-    seller = form.text_input("Seller", extracted_data.get("Seller"))
-    buyer = form.text_input("Buyer", extracted_data.get("Buyer"))
-    commodity = form.text_input("Commodity", extracted_data.get("Commodity"))
-    quantity = form.text_input("Quantity", extracted_data.get("Quantity"))
-    price = form.text_input("Price", extracted_data.get("Price"))
-    terms = form.text_input("Terms", extracted_data.get("Terms"))
-    dates = form.text_input("Dates", extracted_data.get("Dates"))
-    incoterms = form.text_input("Incoterms", extracted_data.get("Incoterms"))
-    payment = form.text_input("Payment terms", extracted_data.get("Payment terms"))
-    law = form.text_input("Governing law", extracted_data.get("Governing law"))
-    bank = form.text_input("Bank details", extracted_data.get("Bank details"))
-    
-    submit = form.form_submit_button("Send to ERP")
-    
-    if submit:
-        # Simulate API POST
-        payload = {
-            "Seller": seller,
-            "Buyer": buyer,
-            "Commodity": commodity,
-            "Quantity": quantity,
-            "Price": price,
-            "Terms": terms,
-            "Dates": dates,
-            "Incoterms": incoterms,
-            "Payment terms": payment,
-            "Governing law": law,
-            "Bank details": bank
-        }
-        st.success("Data sent to ERP (simulated)")
-        st.json(payload)
+    st.text_area("Contract Preview", text, height=200)
+
+    if st.button("Extract Data & Show ERP Format"):
+        extracted_data = mock_extract_contract(text)
+        st.success("Data extracted successfully!")
+        st.subheader("Data ready to push to ERP:")
+        st.json(extracted_data)
