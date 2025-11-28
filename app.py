@@ -1,8 +1,6 @@
-# File: app.py
 import streamlit as st
 import re
 import pandas as pd
-from io import StringIO
 from PyPDF2 import PdfReader
 from docx import Document
 
@@ -49,7 +47,7 @@ def extract_text_from_docx(file):
     return text
 
 def extract_text_from_excel(file):
-    df = pd.read_excel(file, sheet_name=None)  # all sheets
+    df = pd.read_excel(file, sheet_name=None)
     text = ""
     for sheet_name, sheet in df.items():
         sheet_text = sheet.astype(str).agg(' '.join, axis=1).str.cat(sep='\n')
@@ -62,12 +60,8 @@ st.write("Upload a contract (PDF, Word, Excel, or TXT)")
 
 uploaded_file = st.file_uploader("Choose a contract", type=["txt","pdf","docx","xlsx"])
 
-extracted_data = None
-
 if uploaded_file:
-    file_type = uploaded_file.type
     text = ""
-
     if uploaded_file.name.endswith(".txt"):
         text = uploaded_file.read().decode("utf-8")
     elif uploaded_file.name.endswith(".pdf"):
